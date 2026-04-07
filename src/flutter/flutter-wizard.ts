@@ -20,6 +20,7 @@ import { traceStep, withTelemetry } from '../telemetry';
 import { findFile } from './code-tools';
 import { offerProjectScopedMcpConfig } from '../utils/clack/mcp-config';
 import { abortIfSpotlightNotSupported } from '../utils/abort-if-sportlight-not-supported';
+import { fixLineEndings } from '../utils/line-endings';
 
 export async function runFlutterWizard(options: WizardOptions): Promise<void> {
   return withTelemetry(
@@ -167,6 +168,9 @@ Set the ${chalk.cyan(
     selectedProject.organization.slug,
     selectedProject.slug,
   );
+
+  // Fix mixed line endings caused by inserting LF content into CRLF files (Windows)
+  fixLineEndings();
 
   const issuesPageLink = selfHosted
     ? `${sentryUrl}organizations/${selectedProject.organization.slug}/issues/?project=${selectedProject.id}`
