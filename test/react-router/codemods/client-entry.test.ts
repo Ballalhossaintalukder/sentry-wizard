@@ -52,7 +52,15 @@ describe('instrumentClientEntry', () => {
 
     fs.writeFileSync(tmpFile, basicContent);
 
-    await instrumentClientEntry(tmpFile, 'test-dsn', true, true, true);
+    await instrumentClientEntry(
+      tmpFile,
+      'test-dsn',
+      true,
+      true,
+      true,
+      false,
+      true,
+    );
 
     const modifiedContent = fs.readFileSync(tmpFile, 'utf8');
 
@@ -65,6 +73,7 @@ describe('instrumentClientEntry', () => {
     expect(modifiedContent).toContain('Sentry.reactRouterTracingIntegration()');
     expect(modifiedContent).toContain('Sentry.replayIntegration(');
     expect(modifiedContent).toContain('enableLogs: true');
+    expect(modifiedContent).toContain('onError={Sentry.sentryOnError}');
   });
 
   it('should add Sentry initialization with only tracing enabled', async () => {
@@ -165,7 +174,7 @@ describe('instrumentClientEntry', () => {
     expect(modifiedContent).not.toContain('enableLogs: true');
   });
 
-  it('should not modify file when Sentry content already exists', async () => {
+  it('should not add Sentry.init when Sentry content already exists but still add onError', async () => {
     const withSentryContent = fs.readFileSync(
       path.join(fixturesDir, 'with-sentry.tsx'),
       'utf8',
@@ -173,12 +182,24 @@ describe('instrumentClientEntry', () => {
 
     fs.writeFileSync(tmpFile, withSentryContent);
 
-    await instrumentClientEntry(tmpFile, 'test-dsn', true, true, true);
+    await instrumentClientEntry(
+      tmpFile,
+      'test-dsn',
+      true,
+      true,
+      true,
+      false,
+      true,
+    );
 
     const modifiedContent = fs.readFileSync(tmpFile, 'utf8');
 
-    // Content should remain unchanged
-    expect(modifiedContent).toBe(withSentryContent);
+    // Should not duplicate Sentry.init
+    const initCount = (modifiedContent.match(/Sentry\.init\(/g) || []).length;
+    expect(initCount).toBe(1);
+
+    // Should still add onError prop to HydratedRouter
+    expect(modifiedContent).toContain('onError={Sentry.sentryOnError}');
   });
 
   it('should insert Sentry initialization after imports', async () => {

@@ -11,7 +11,6 @@ import type { PackageDotJson } from '../utils/package-json';
 import { getPackageVersion } from '../utils/package-json';
 import { debug } from '../utils/debug';
 import { getSentryInstrumentationServerContent } from './templates';
-import { instrumentRoot } from './codemods/root';
 import { instrumentServerEntry } from './codemods/server-entry';
 import { getPackageDotJson } from '../utils/clack';
 import { instrumentClientEntry } from './codemods/client.entry';
@@ -168,6 +167,24 @@ export function getReactRouterVersion(
   return coerced ? coerced.version : rangeVersion;
 }
 
+export function supportsOnError(packageJson: PackageDotJson): boolean {
+  const reactRouterVersion = getPackageVersion(
+    '@react-router/dev',
+    packageJson,
+  );
+  if (!reactRouterVersion) {
+    return false;
+  }
+
+  const minVer = minVersion(reactRouterVersion);
+
+  if (!minVer) {
+    return false;
+  }
+
+  return gte(minVer, '7.11.0');
+}
+
 export function supportsInstrumentationAPI(
   packageJson: PackageDotJson,
 ): boolean {
@@ -195,6 +212,7 @@ export async function initializeSentryOnEntryClient(
   enableLogs: boolean,
   isTS: boolean,
   useInstrumentationAPI = false,
+  useOnError = false,
 ): Promise<void> {
   const clientEntryPath = getAppFilePath('entry.client', isTS);
   const clientEntryFilename = path.basename(clientEntryPath);
@@ -208,25 +226,12 @@ export async function initializeSentryOnEntryClient(
     enableReplay,
     enableLogs,
     useInstrumentationAPI,
+    useOnError,
   );
 
   clack.log.success(
     `Updated ${chalk.cyan(clientEntryFilename)} with Sentry initialization.`,
   );
-}
-
-export async function instrumentRootRoute(isTS: boolean): Promise<void> {
-  const rootPath = getAppFilePath('root', isTS);
-  const rootFilename = path.basename(rootPath);
-
-  if (!fs.existsSync(rootPath)) {
-    throw new Error(
-      `${rootFilename} not found in app directory. Please ensure your React Router v7 app has a root.tsx/jsx file in the app folder.`,
-    );
-  }
-
-  await instrumentRoot(rootFilename);
-  clack.log.success(`Updated ${chalk.cyan(rootFilename)} with ErrorBoundary.`);
 }
 
 export function createServerInstrumentationFile(
